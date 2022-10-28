@@ -53,7 +53,6 @@ class KBAnnotationModule(BaseModule):
     
     def query_rcsb_with_proteins(self,sequence_list,cutoff_type="evalue",threhold=0.00001):
         output_table = {"id":[],"rcsbid":[],"method":[],"strand":[],"similarity":[],"taxonomy":[],"name":[],"components":[],"rcsbec":[],"uniprotec":[],"uniprotID":[],"references":[]}
-        seq_hash = {}
         query_rcsb_input = {
             "sequence_strings":[],
             "workspace_name":self.ws_name
@@ -64,38 +63,41 @@ class KBAnnotationModule(BaseModule):
             query_rcsb_input["identity_cutoff"] = threhold
         for item in sequence_list:
             query_rcsb_input["sequence_strings"].append(item[1])
-            seq_hash[item[0]] = hashlib.md5(item[1].encode()).hexdigest()
         pdb_query_output = self.pdb_query_client.query_rcsb_structures(query_rcsb_input)
+        self.print_json_debug_file("QueryResults.json",pdb_query_output)
         for item in sequence_list:
-            row = {
-                "rcsbid": "1A49_1",
-                "name": ["Carbonic anhydrase 2"],
-                "pdbx_sequence": "SKSHSEAGSAFIQTQQLHAAMADTFLEHMCRLDIDSAPITARNTGIICTIGPASRSVETLKEMIKSGMNVARMNFSHGTHEYHAETIKNVRTATESFASDPILYRPVAVALDTKGPEIRTGLIKGSGTAEVELKKGATLKITLDNAYMEKCDENILWLDYKNICKVVDVGSKVYVDDGLISLQVKQKGPDFLVTEVENGGFLGSKKGVNLPGAAVDLPAVSEKDIQDLKFGVEQDVDMVFASFIRKAADVHEVRKILGEKGKNIKIISKIENHEGVRRFDEILEASDGIMVARGDLGIEIPAEKVFLAQKMIIGRCNRAGKPVICATQMLESMIKKPRPTRAEGSDVANAVLDGADCIMLSGETAKGDYPLEAVRMQHLIAREAEAAMFHRKLFEELARSSSHSTDLMEAMAMGSVEASYKCLAAALIVLTESGRSAHQVARYRPRAPIIAVTRNHQTARQAHLYRGIFPVVCKDPVQEAWAEDVDLRVNLAMNVGKARGFFKKGDVVIVLTGWRPGSGFTNTMRVVPVP",
-                "rcsbec": ["2", "2.7", "2.7.1", "2.7.1.40", "2.7.11", "2.7.11.1", "2.7.10", "2.7.10.2"],
-                "uniprotec": [{"number": "4.2.1.1", "provenance_code": "up:Protein.up:recommendedName"}, {"number": "4.2.1.69", "provenance_code": "up:Protein.up:alternativeName"}],
-                "identity": 1.0,
-                "uniprotID": ["P11974"],
-                "pdbx_strand_id": ["A", "B", "C", "D", "E", "F", "G", "H"],
-                "taxonomy": [9986, "Oryctolagus cuniculus"],
-                "evalue": 0.001,
-                "method": ["X-RAY DIFFRACTION"],
-                "components": {"InChIKey": ["NPYPAHLBTDXSSS-UHFFFAOYSA-N", "MUBZPKHOEPUJKR-UHFFFAOYSA-L", "JLVVSXFLKOJNIY-UHFFFAOYSA-N", "ZKHQWZAMYRWXGA-KQYNXXCUSA-N"]},
-                "references": [1910042, "Structure of the bis(Mg2+)-ATP-oxalate complex of the rabbit muscle pyruvate kinase at 2.1 A resolution: ATP binding over a barrel.", "Biochemistry", "Larsen, T.M.", "1998"]
-            }
-            #if seq_hash[item[0]] in pdb_query_output:
-            #for row in pdb_query_output[seq_hash[item[0]]]:
-            output_table["id"].append(item[0])
-            output_table["rcsbid"].append(row["rcsbid"])
-            output_table["name"].append(row["name"][0])
-            output_table["method"].append(row["method"][0])
-            output_table["strand"].append(row["pdbx_strand_id"])
-            output_table["similarity"].append(row["evalue"])
-            output_table["taxonomy"].append(row["taxonomy"])
-            output_table["components"].append(row["components"]["InChIKey"])
-            output_table["rcsbec"].append(row["rcsbec"])
-            output_table["uniprotec"].append(row["uniprotec"])
-            output_table["uniprotID"].append(row["uniprotID"])
-            output_table["references"].append(row["references"])
+            # row = {
+            #     "rcsbid": "1A49_1",
+            #     "name": ["Carbonic anhydrase 2"],
+            #     "pdbx_sequence": "SKSHSEAGSAFIQTQQLHAAMADTFLEHMCRLDIDSAPITARNTGIICTIGPASRSVETLKEMIKSGMNVARMNFSHGTHEYHAETIKNVRTATESFASDPILYRPVAVALDTKGPEIRTGLIKGSGTAEVELKKGATLKITLDNAYMEKCDENILWLDYKNICKVVDVGSKVYVDDGLISLQVKQKGPDFLVTEVENGGFLGSKKGVNLPGAAVDLPAVSEKDIQDLKFGVEQDVDMVFASFIRKAADVHEVRKILGEKGKNIKIISKIENHEGVRRFDEILEASDGIMVARGDLGIEIPAEKVFLAQKMIIGRCNRAGKPVICATQMLESMIKKPRPTRAEGSDVANAVLDGADCIMLSGETAKGDYPLEAVRMQHLIAREAEAAMFHRKLFEELARSSSHSTDLMEAMAMGSVEASYKCLAAALIVLTESGRSAHQVARYRPRAPIIAVTRNHQTARQAHLYRGIFPVVCKDPVQEAWAEDVDLRVNLAMNVGKARGFFKKGDVVIVLTGWRPGSGFTNTMRVVPVP",
+            #     "rcsbec": ["2", "2.7", "2.7.1", "2.7.1.40", "2.7.11", "2.7.11.1", "2.7.10", "2.7.10.2"],
+            #     "uniprotec": [{"number": "4.2.1.1", "provenance_code": "up:Protein.up:recommendedName"}, {"number": "4.2.1.69", "provenance_code": "up:Protein.up:alternativeName"}],
+            #     "identity": 1.0,
+            #     "uniprotID": ["P11974"],
+            #     "pdbx_strand_id": ["A", "B", "C", "D", "E", "F", "G", "H"],
+            #     "taxonomy": [9986, "Oryctolagus cuniculus"],
+            #     "evalue": 0.001,
+            #     "method": ["X-RAY DIFFRACTION"],
+            #     "components": {"InChIKey": ["NPYPAHLBTDXSSS-UHFFFAOYSA-N", "MUBZPKHOEPUJKR-UHFFFAOYSA-L", "JLVVSXFLKOJNIY-UHFFFAOYSA-N", "ZKHQWZAMYRWXGA-KQYNXXCUSA-N"]},
+            #     "references": [1910042, "Structure of the bis(Mg2+)-ATP-oxalate complex of the rabbit muscle pyruvate kinase at 2.1 A resolution: ATP binding over a barrel.", "Biochemistry", "Larsen, T.M.", "1998"]
+            # }
+            if item[1] in pdb_query_output:
+                for row in pdb_query_output[item[1]]:
+                    output_table["id"].append(item[0])
+                    output_table["rcsbid"].append(row["rcsbid"])
+                    output_table["name"].append(row["name"][0])
+                    output_table["method"].append(row["method"][0])
+                    output_table["strand"].append(row["pdbx_strand_id"])
+                    output_table["similarity"].append(row["evalue"])
+                    output_table["taxonomy"].append(row["taxonomy"])
+                    if "InChIKey" in row["components"]:
+                        output_table["components"].append(row["components"]["InChIKey"])
+                    else:
+                        output_table["components"].append(None)
+                    output_table["rcsbec"].append(row["rcsbec"])
+                    output_table["uniprotec"].append(row["uniprotec"])
+                    output_table["uniprotID"].append(row["uniprotID"])
+                    output_table["references"].append(row["references"])
         return output_table
 
     def add_annotations_to_genome(self,ref,suffix,pdb_query_output):
@@ -113,8 +115,8 @@ class KBAnnotationModule(BaseModule):
                 if id not in ontology_inputs["TAXID"]:
                     ontology_inputs["TAXID"][geneid] = []
                 ontology_inputs["TAXID"][geneid].append({
-                    "term":"TAXID:"+str(pdb_query_output["taxonomy"][count][0]),
-                    "name":pdb_query_output["taxonomy"][count][1]+";"+pdb_query_output["rcsbid"][count]
+                    "term":"TAXID:"+str(pdb_query_output["taxonomy"][count][0][0]),
+                    "name":pdb_query_output["taxonomy"][count][0][1]+";"+pdb_query_output["rcsbid"][count]
                 })
             if pdb_query_output["uniprotID"][count]:
                 if "UNIPROT" not in ontology_inputs:
