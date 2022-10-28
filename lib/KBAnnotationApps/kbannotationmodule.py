@@ -29,15 +29,16 @@ class KBAnnotationModule(BaseModule):
             "similarity_threshold":0.00001,
             "return_data":False
         })
-        tables = {}
+        dataframes = {}
+        query_tables = {}
         for ref in params["genome_refs"]:
             sequence_list = self.genome_to_proteins(ref)
             query_table = self.query_rcsb_with_proteins (sequence_list,params["similarity_threshold_type"],params["similarity_threshold"])
             self.add_annotations_to_genome(ref,params["suffix"],query_table)
-            tables[self.genome_info_hash[ref][1]] = pd.DataFrame(query_table)
-        output = self.build_report(tables)
+            query_tables[self.genome_info_hash[ref][1]] = query_table
+        output = self.build_report(query_tables)
         if params["return_data"]:
-            output["data"] = data
+            output["data"] = query_tables
         return output
     
     #Utility functions
@@ -187,9 +188,9 @@ class KBAnnotationModule(BaseModule):
         self.obj_created.append({"ref":anno_api_output["output_ref"],"description":"Saving PDB annotation for "+self.genome_info_hash[ref][1]})
         return anno_api_output
             
-    def build_report(self,tables):
-        genomes = list(tables.keys())
-        table = tables[genomes[0]]
+    def build_report(self,data):
+        genomes = list(data.keys())
+        table = pd.DataFrame(data[genomes[0]])
         #columns=column_list
         html_data = f"""
     <html>
@@ -217,7 +218,6 @@ class KBAnnotationModule(BaseModule):
         with open(os.path.join(html_report_folder, 'index.html'), 'w') as f:
             f.write(html_data)
         return {
-            'data':table,
             'file_path':os.path.join(html_report_folder, 'index.html'),
             'report_params':{
                 'objects_created': self.obj_created,
