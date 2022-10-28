@@ -188,7 +188,7 @@ class KBAnnotationModule(BaseModule):
         return anno_api_output
             
     def build_report(self,tables):
-        genomes = tables.keys()
+        genomes = list(tables.keys())
         table = tables[genomes[0]]
         #columns=column_list
         html_data = f"""
