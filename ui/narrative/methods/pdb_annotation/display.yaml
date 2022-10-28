@@ -1,0 +1,63 @@
+#
+# Define basic display information
+#
+name     : PDB - Import PDB Metadata into KBase Genome
+
+tooltip  : |
+    Queries PDB API with genome proteins and annotates proteins with associated PDB metadata
+
+screenshots : []
+
+
+#
+# Define the set of other narrative methods that should be suggested to the user.
+#
+suggestions :
+    apps:
+        related :
+            []
+        next :
+            []
+    methods:
+        related :
+            []
+        next :
+            []
+
+
+#
+# Configure the display and description of the parameters
+#
+parameters :
+    genome_refs :
+        ui-name : |
+            Genomes
+        short-hint : |
+            Genomes to be annotated 
+        placeholder : |
+            Genomes to be annotated
+
+    suffix :
+        ui-name : |
+            Suffix for annotated genomes
+        short-hint : |
+            Suffix placed on the genome names when the annotated genome is saved
+
+    similarity_threshold :
+        ui-name : |
+            Similarity threshold
+        short-hint : |
+            Similarity threshold for hits in PDB used to annotate genome
+    
+    similarity_threshold_type :
+        ui-name : |
+            Similarity threshold type
+        short-hint : |
+            Similarity threshold type
+
+
+icon: null
+
+description : |
+
+    <p>Queries PDB API with genome proteins and annotates proteins with associated PDB metadata</p>

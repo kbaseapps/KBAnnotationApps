@@ -1,0 +1,139 @@
+{
+    "name": "pdb_annotation",
+    "ver": "0.0.1",
+    "authors": [
+        "chenry"
+    ],
+    "contact": "http://kbase.us/contact-us/",
+    "visible": true,
+    "categories": [
+        "active","annotation"
+    ],
+    "widgets": {
+        "output": "no-display",
+        "input": null
+    },
+    "parameters": [
+        {
+            "id": "genome_refs",
+            "field_type": "text",
+            "default_values": [
+                ""
+            ],
+            "text_options": {
+                "valid_ws_types": [
+                    "KBaseGenomes.Genome"
+                ]
+            },
+            "allow_multiple": true,
+            "optional": false,
+            "advanced": false
+        },
+        {
+            "id": "suffix",
+            "field_type": "text",
+            "default_values": [
+                ".pdb"
+            ],
+            "allow_multiple": false,
+            "optional": false,
+            "advanced": false
+        },
+        {
+            "id": "similarity_threshold_type",
+            "field_type": "dropdown",
+            "default_values": [
+                "evalue"
+            ],
+            "dropdown_options": {
+                "options": [
+                    {
+                        "id": "evalue",
+                        "display": "E-value",
+                        "ui_name": "E-value",
+                        "value": "evalue"
+                    },
+                    {
+                        "id": "bitscore",
+                        "value": "bitscore",
+                        "ui_name": "Bitscore",
+                        "display": "Bitscore"
+                    },
+                    {
+                        "id": "identity",
+                        "value": "identity",
+                        "ui_name": "Percent identity",
+                        "display": "Percent identity"
+                    }
+                ]
+            },
+            "allow_multiple": false,
+            "optional": false,
+            "advanced": false
+        },
+        {
+			"id" : "similarity_threshold",
+			"field_type" : "text",
+			"default_values" : [
+				"0.00001"
+			],
+			"text_options" : {
+				"validate_as" : "float"
+			},
+			"allow_multiple" : false,
+			"optional" : false,
+			"advanced" : false
+		}
+    ],
+    "behavior": {
+        "service-mapping": {
+            "url": "",
+            "name": "KBAnnotationApps",
+            "method": "PDBAnnotation",
+            "input_mapping": [
+                {
+                    "target_property": "workspace",
+                    "narrative_system_variable": "workspace"
+                },
+                {
+                    "target_property": "genome_refs",
+                    "input_parameter": "genome_refs",
+                    "target_type_transform": "resolved-ref"
+                },
+                {
+                    "target_property": "suffix",
+                    "input_parameter": "suffix"
+                },
+                {
+                    "input_parameter": "similarity_threshold_type",
+                    "target_property": "similarity_threshold_type"
+                },
+                {
+                    "target_property": "similarity_threshold",
+                    "input_parameter": "similarity_threshold"
+                }
+            ],
+            "output_mapping": [
+                {
+                    "service_method_output_path": [
+                        0,
+                        "report_name"
+                    ],
+                    "target_property": "report_name"
+                },
+                {
+                    "service_method_output_path": [
+                        0,
+                        "report_ref"
+                    ],
+                    "target_property": "report_ref"
+                },
+                {
+                    "narrative_system_variable": "workspace",
+                    "target_property": "workspace"
+                }
+            ]
+        }
+    },
+    "job_id_output_field": "docker"
+}
