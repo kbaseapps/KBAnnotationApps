@@ -81,7 +81,7 @@ class KBAnnotationAppsTest(unittest.TestCase):
         
         output = api.PDBAnnotation({
             "workspace":68716,
-            "genome_refs":["68716/ecoli-5"],
+            "genome_ref":"68716/ecoli-5",
             "suffix":".pdb",
             "similarity_threshold_type":"evalue",
             "similarity_threshold":0.00001,

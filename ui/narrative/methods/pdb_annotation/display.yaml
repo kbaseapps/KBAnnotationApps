@@ -29,13 +29,13 @@ suggestions :
 # Configure the display and description of the parameters
 #
 parameters :
-    genome_refs :
+    genome_ref :
         ui-name : |
-            Genomes
+            Genome
         short-hint : |
-            Genomes to be annotated 
+            Genome to be annotated 
         placeholder : |
-            Genomes to be annotated
+            Genome to be annotated
 
     suffix :
         ui-name : |

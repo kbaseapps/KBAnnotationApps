@@ -15,7 +15,7 @@
     },
     "parameters": [
         {
-            "id": "genome_refs",
+            "id": "genome_ref",
             "field_type": "text",
             "default_values": [
                 ""
@@ -25,7 +25,7 @@
                     "KBaseGenomes.Genome"
                 ]
             },
-            "allow_multiple": true,
+            "allow_multiple": false,
             "optional": false,
             "advanced": false
         },
@@ -52,12 +52,6 @@
                         "display": "E-value",
                         "ui_name": "E-value",
                         "value": "evalue"
-                    },
-                    {
-                        "id": "bitscore",
-                        "value": "bitscore",
-                        "ui_name": "Bitscore",
-                        "display": "Bitscore"
                     },
                     {
                         "id": "identity",
@@ -96,8 +90,8 @@
                     "narrative_system_variable": "workspace"
                 },
                 {
-                    "target_property": "genome_refs",
-                    "input_parameter": "genome_refs",
+                    "target_property": "genome_ref",
+                    "input_parameter": "genome_ref",
                     "target_type_transform": "resolved-ref"
                 },
                 {

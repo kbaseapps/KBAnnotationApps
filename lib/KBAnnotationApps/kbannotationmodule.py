@@ -7,6 +7,7 @@ import logging
 import json
 import pandas as pd
 import hashlib
+import re
 from kbbasemodules.basemodule import BaseModule
 
 logger = logging.getLogger(__name__)
@@ -23,22 +24,18 @@ class KBAnnotationModule(BaseModule):
     #Main function for annotating genomes with PDB
     def PDBAnnotation(self,params):
         self.initialize_call("PDBAnnotation",params,True)
-        self.validate_args(params,["workspace","genome_refs"],{
+        self.validate_args(params,["workspace","genome_ref"],{
             "suffix":".pdb",
             "similarity_threshold_type":"evalue",
             "similarity_threshold":0.00001,
             "return_data":False
         })
-        dataframes = {}
-        query_tables = {}
-        for ref in params["genome_refs"]:
-            sequence_list = self.genome_to_proteins(ref)
-            query_table = self.query_rcsb_with_proteins (sequence_list,params["similarity_threshold_type"],params["similarity_threshold"])
-            self.add_annotations_to_genome(ref,params["suffix"],query_table)
-            query_tables[self.genome_info_hash[ref][1]] = query_table
-        output = self.build_report(query_tables)
+        sequence_list = self.genome_to_proteins(params["genome_ref"])
+        query_table = self.query_rcsb_with_proteins(sequence_list,params["similarity_threshold_type"],params["similarity_threshold"])
+        self.add_annotations_to_genome(params["genome_ref"],params["suffix"],query_table)
+        output = self.build_report(query_table,params["genome_ref"])
         if params["return_data"]:
-            output["data"] = query_tables
+            output["data"] = query_table
         return output
     
     #Utility functions
@@ -63,24 +60,9 @@ class KBAnnotationModule(BaseModule):
             query_rcsb_input["identity_cutoff"] = threhold
         for item in sequence_list:
             query_rcsb_input["sequence_strings"].append(item[1])
-        pdb_query_output = self.pdb_query_client.query_rcsb_structures(query_rcsb_input)
+        pdb_query_output = self.pdb_query_client.query_rcsb_annotations(query_rcsb_input)
         self.print_json_debug_file("QueryResults.json",pdb_query_output)
         for item in sequence_list:
-            # row = {
-            #     "rcsbid": "1A49_1",
-            #     "name": ["Carbonic anhydrase 2"],
-            #     "pdbx_sequence": "SKSHSEAGSAFIQTQQLHAAMADTFLEHMCRLDIDSAPITARNTGIICTIGPASRSVETLKEMIKSGMNVARMNFSHGTHEYHAETIKNVRTATESFASDPILYRPVAVALDTKGPEIRTGLIKGSGTAEVELKKGATLKITLDNAYMEKCDENILWLDYKNICKVVDVGSKVYVDDGLISLQVKQKGPDFLVTEVENGGFLGSKKGVNLPGAAVDLPAVSEKDIQDLKFGVEQDVDMVFASFIRKAADVHEVRKILGEKGKNIKIISKIENHEGVRRFDEILEASDGIMVARGDLGIEIPAEKVFLAQKMIIGRCNRAGKPVICATQMLESMIKKPRPTRAEGSDVANAVLDGADCIMLSGETAKGDYPLEAVRMQHLIAREAEAAMFHRKLFEELARSSSHSTDLMEAMAMGSVEASYKCLAAALIVLTESGRSAHQVARYRPRAPIIAVTRNHQTARQAHLYRGIFPVVCKDPVQEAWAEDVDLRVNLAMNVGKARGFFKKGDVVIVLTGWRPGSGFTNTMRVVPVP",
-            #     "rcsbec": ["2", "2.7", "2.7.1", "2.7.1.40", "2.7.11", "2.7.11.1", "2.7.10", "2.7.10.2"],
-            #     "uniprotec": [{"number": "4.2.1.1", "provenance_code": "up:Protein.up:recommendedName"}, {"number": "4.2.1.69", "provenance_code": "up:Protein.up:alternativeName"}],
-            #     "identity": 1.0,
-            #     "uniprotID": ["P11974"],
-            #     "pdbx_strand_id": ["A", "B", "C", "D", "E", "F", "G", "H"],
-            #     "taxonomy": [9986, "Oryctolagus cuniculus"],
-            #     "evalue": 0.001,
-            #     "method": ["X-RAY DIFFRACTION"],
-            #     "components": {"InChIKey": ["NPYPAHLBTDXSSS-UHFFFAOYSA-N", "MUBZPKHOEPUJKR-UHFFFAOYSA-L", "JLVVSXFLKOJNIY-UHFFFAOYSA-N", "ZKHQWZAMYRWXGA-KQYNXXCUSA-N"]},
-            #     "references": [1910042, "Structure of the bis(Mg2+)-ATP-oxalate complex of the rabbit muscle pyruvate kinase at 2.1 A resolution: ATP binding over a barrel.", "Biochemistry", "Larsen, T.M.", "1998"]
-            # }
             if item[1] in pdb_query_output:
                 for row in pdb_query_output[item[1]]:
                     output_table["id"].append(item[0])
@@ -88,12 +70,9 @@ class KBAnnotationModule(BaseModule):
                     output_table["name"].append(row["name"][0])
                     output_table["method"].append(row["method"][0])
                     output_table["strand"].append(row["pdbx_strand_id"])
-                    output_table["similarity"].append(row["evalue"])
+                    output_table["similarity"].append([row["evalue"],row["identity"]])
                     output_table["taxonomy"].append(row["taxonomy"])
-                    if "InChIKey" in row["components"]:
-                        output_table["components"].append(row["components"]["InChIKey"])
-                    else:
-                        output_table["components"].append(None)
+                    output_table["components"].append(row["components"])
                     output_table["rcsbec"].append(row["rcsbec"])
                     output_table["uniprotec"].append(row["uniprotec"])
                     output_table["uniprotID"].append(row["uniprotID"])
@@ -107,12 +86,12 @@ class KBAnnotationModule(BaseModule):
                 ontology_inputs["RCSBID"][geneid] = []
             ontology_inputs["RCSBID"][geneid].append({
                 "term":"RCSBID:"+pdb_query_output["rcsbid"][count],
-                "name":pdb_query_output["name"][count]+";"+pdb_query_output["method"][count]+";"+",".join(pdb_query_output["strand"][count])+";Evalue="+str(pdb_query_output["similarity"][count])
+                "name":pdb_query_output["name"][count]+";"+pdb_query_output["method"][count]+";"+",".join(pdb_query_output["strand"][count])+";Evalue="+str(pdb_query_output["similarity"][count][0])
             })
             if pdb_query_output["taxonomy"][count]:
                 if "TAXID" not in ontology_inputs:
                     ontology_inputs["TAXID"] = {}
-                if id not in ontology_inputs["TAXID"]:
+                if geneid not in ontology_inputs["TAXID"]:
                     ontology_inputs["TAXID"][geneid] = []
                 ontology_inputs["TAXID"][geneid].append({
                     "term":"TAXID:"+str(pdb_query_output["taxonomy"][count][0][0]),
@@ -121,7 +100,7 @@ class KBAnnotationModule(BaseModule):
             if pdb_query_output["uniprotID"][count]:
                 if "UNIPROT" not in ontology_inputs:
                     ontology_inputs["UNIPROT"] = {}
-                if id not in ontology_inputs["UNIPROT"]:
+                if geneid not in ontology_inputs["UNIPROT"]:
                     ontology_inputs["UNIPROT"][geneid] = []
                 for item in pdb_query_output["uniprotID"][count]:
                     ontology_inputs["UNIPROT"][geneid].append({
@@ -131,7 +110,7 @@ class KBAnnotationModule(BaseModule):
             if pdb_query_output["rcsbec"][count]:
                 if "EC" not in ontology_inputs:
                     ontology_inputs["EC"] = {}
-                if id not in ontology_inputs["EC"]:
+                if geneid not in ontology_inputs["EC"]:
                     ontology_inputs["EC"][geneid] = []
                 for item in pdb_query_output["rcsbec"][count]:
                     array = item.split(".")
@@ -143,7 +122,7 @@ class KBAnnotationModule(BaseModule):
             if pdb_query_output["uniprotec"][count]:
                 if "EC" not in ontology_inputs:
                     ontology_inputs["EC"] = {}
-                if id not in ontology_inputs["EC"]:
+                if geneid not in ontology_inputs["EC"]:
                     ontology_inputs["EC"][geneid] = []
                 for item in pdb_query_output["uniprotec"][count]:
                     ontology_inputs["EC"][geneid].append({
@@ -153,22 +132,33 @@ class KBAnnotationModule(BaseModule):
             if pdb_query_output["references"][count]:
                 if "PUBMED" not in ontology_inputs:
                     ontology_inputs["PUBMED"] = {}
-                if id not in ontology_inputs["PUBMED"]:
+                if geneid not in ontology_inputs["PUBMED"]:
                     ontology_inputs["PUBMED"][geneid] = []
                 ontology_inputs["PUBMED"][geneid].append({
                     "term":"PUBMED:"+str(pdb_query_output["references"][count][0]),
                     "name":pdb_query_output["rcsbid"][count]+":"+pdb_query_output["references"][count][3]+" et al."+pdb_query_output["references"][count][1]+"."+pdb_query_output["references"][count][2]+"("+pdb_query_output["references"][count][2]+")"
                 })
             if pdb_query_output["components"][count]:
-                if "InChIKey" not in ontology_inputs:
-                    ontology_inputs["InChIKey"] = {}
-                if id not in ontology_inputs["InChIKey"]:
-                    ontology_inputs["InChIKey"][geneid] = []
                 for item in pdb_query_output["components"][count]:
-                    ontology_inputs["InChIKey"][geneid].append({
-                        "term":"InChIKey:"+item,
-                        "name":item+";cocrystalized in "+pdb_query_output["rcsbid"][count]
-                    })
+                    if re.search('(cpd\d+)\s\((.+)\)', item):
+                        m = re.search('(cpd\d+)\s\((.+)\)', item)
+                        if "MSCPD" not in ontology_inputs:
+                            ontology_inputs["MSCPD"] = {}
+                        if geneid not in ontology_inputs["MSCPD"]:
+                            ontology_inputs["MSCPD"][geneid] = []
+                        ontology_inputs["MSCPD"][geneid].append({
+                            "term":"MSCPD:"+m[1],
+                            "name":m[2]+";cocrystalized in "+pdb_query_output["rcsbid"][count]
+                        })
+                    elif re.search('^InChI', item):
+                        if "InChI" not in ontology_inputs:
+                            ontology_inputs["InChI"] = {}
+                        if geneid not in ontology_inputs["InChI"]:
+                            ontology_inputs["InChI"][geneid] = []
+                        ontology_inputs["InChI"][geneid].append({
+                            "term":"InChI:"+m[1],
+                            "name":m[1]+";cocrystalized in "+pdb_query_output["rcsbid"][count]
+                        })
         anno_api_input = {
             "input_ref":ref,
             "output_name":self.genome_info_hash[ref][1]+suffix,
@@ -190,10 +180,73 @@ class KBAnnotationModule(BaseModule):
         self.obj_created.append({"ref":anno_api_output["output_ref"],"description":"Saving PDB annotation for "+self.genome_info_hash[ref][1]})
         return anno_api_output
             
-    def build_report(self,data):
-        genomes = list(data.keys())
-        table = pd.DataFrame(data[genomes[0]])
+    def build_report(self,data,ref):        
+        table = pd.DataFrame(data)
+        for index, row in table.iterrows():
+            row["id"] = '<a href="https://appdev.kbase.us/#dataview/'+ref+'?sub=Feature&subid='+row["id"]+'" target="_blank">'+row["id"]+'</a>'
+            array = row["rcsbid"].split("_")
+            row["rcsbid"] = '<a href="https://www.rcsb.org/3d-view/'+array[0]+'" target="_blank">'+row["rcsbid"]+'</a>'
+            row["strand"] = ", ".join(row["strand"])
+            newdata = ""
+            inchidata = ""
+            for item in row["components"]:
+                if re.search('(cpd\d+)\s\((.+)\)', item):
+                    m = re.search('(cpd\d+)\s\((.+)\)', item)
+                    if len(newdata) > 0:
+                        newdata += "<br>"
+                    newdata += '<a href=" https://modelseed.org/biochem/compounds/'+m[1]+'" target="_blank">'+m[2]+'</a>'
+                elif re.search('^InChI', item):
+                    if len(inchidata) > 0:
+                        inchidata += "<br>"
+                    inchidata += item  
+            if len(newdata) > 0 and len(inchidata) > 0:
+                row["components"] = newdata+"<br>"+inchidata
+            elif len(newdata) == 0 and len(inchidata) > 0:
+                row["components"] = inchidata
+            elif len(newdata) > 0 and len(inchidata) == 0:
+                row["components"] = newdata
+            else:
+                row["components"] = ""
+            newsim = "Identity: "+str(row["similarity"][1])+"<br>Evalue: "+str(row["similarity"][0])
+            row["similarity"] = newsim
+            newec = ""
+            echash = {}
+            for ec in row["rcsbec"]:
+                array = ec.split(".")
+                if len(array) == 4:
+                    echash[ec] = ["RCSB"]
+            for item in row["uniprotec"]:
+                if "number" in item:
+                    if item["number"] not in echash:
+                        echash[item["number"]] = []
+                    echash[item["number"]].append("UniProt")
+            for ec in echash:
+                if len(newec) > 0:
+                    newec += "<br>"
+                newec += '<a href="https://www.kegg.jp/entry/'+ec+'" target="_blank">'+ec+"("+"/".join(echash[ec])+')</a>'
+            row["rcsbec"] = newec
+            newuniprot = ""
+            for id in row["uniprotID"]:
+                if len(newuniprot) > 0:
+                    newuniprot += "<br>"
+                newuniprot += '<a href="https://www.uniprot.org/uniprotkb/'+id+'/entry" target="_blank">'+id+'</a>'
+            row["uniprotID"] = newuniprot
+            refdata = ""
+            if row["references"][0]:
+                refdata = '<a href="https://pubmed.ncbi.nlm.nih.gov/'+output_table["references"][0]+'/" target="_blank">'+output_table["references"][0]+'</a>'
+            elif row["references"][4] != "None":
+                refdata = row["references"][1]+". "+row["references"][2]+" ("+row["references"][4]+")"
+            else:
+                refdata = row["references"][1]+". "+row["references"][2]
+            row["references"] = refdata
+            taxonomy = ""
+            for item in row["taxonomy"]:
+                if len(taxonomy) > 0:
+                    taxonomy += "<br>"
+                taxonomy += '<a href="https://narrative.kbase.us/#dataview/12570/'+str(item[0])+'/" target="_blank">'+item[1]+'</a>'
+            row["taxonomy"] = taxonomy
         #columns=column_list
+        table = table.drop(columns=['uniprotec'])
         html_data = f"""
     <html>
     <header>

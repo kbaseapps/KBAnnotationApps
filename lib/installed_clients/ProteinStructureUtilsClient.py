@@ -58,6 +58,33 @@ class ProteinStructureUtils(object):
         return self._client.run_job('ProteinStructureUtils.batch_import_pdbs_from_metafile',
                                     [params], self._service_ver, context)
 
+    def import_rcsb_structures(self, params, context=None):
+        """
+        :param params: instance of type "ImportRCSBParams" (Input/output of
+           the import_rcsb_structures function rcsb_infos: a list of
+           RCSBInfoStruct's structures_name: Proteinstructures object name
+           workspace_name: workspace name for object to be saved to) ->
+           structure: parameter "rcsb_infos" of list of type "RCSBInfoStruct"
+           (The information required by the importing app rcsb_id: rcsb
+           structure id extension: file extension for the structure ('pdb' or
+           'cif') narrative_id: a KBase narrative id genome_name: a KBase
+           genome name in the respective narrative of narrative_id
+           feature_id: a KBase feature id in the respective narrative of
+           narrative_id is_model: a value of 0 or 1 to indicate the structure
+           is exprimental or computational) -> structure: parameter "rcsb_id"
+           of String, parameter "extension" of String, parameter
+           "narrative_id" of String, parameter "genome_name" of String,
+           parameter "feature_id" of String, parameter "is_model" of type
+           "boolean" (A boolean - 0 for false, 1 for true. @range (0, 1)),
+           parameter "structures_name" of String, parameter "workspace_name"
+           of type "workspace_name" (workspace name of the object)
+        :returns: instance of type "ImportRCSBStructOutput" -> structure:
+           parameter "structures_ref" of String, parameter "report_name" of
+           String, parameter "report_ref" of String
+        """
+        return self._client.run_job('ProteinStructureUtils.import_rcsb_structures',
+                                    [params], self._service_ver, context)
+
     def export_pdb_structures(self, params, context=None):
         """
         :param params: instance of type "ExportParams" (Input/output of the
@@ -95,6 +122,24 @@ class ProteinStructureUtils(object):
            "report_ref" of String
         """
         return self._client.run_job('ProteinStructureUtils.query_rcsb_structures',
+                                    [params], self._service_ver, context)
+
+    def query_rcsb_annotations(self, params, context=None):
+        """
+        :param params: instance of type "QueryRCSBAnnotationsParams"
+           (Input/output of the query_rcsb_annotations function
+           sequence_strings: a list of protein sequences evalue_cutoff:
+           threshold of homology search identity_cutoff: threshold for
+           sequence identity match workspace_name: workspace name for objects
+           to be saved to @optional evalue_cutoff identity_cutoff) ->
+           structure: parameter "sequence_strings" of list of String,
+           parameter "evalue_cutoff" of Double, parameter "identity_cutoff"
+           of Double, parameter "workspace_name" of type "workspace_name"
+           (workspace name of the object)
+        :returns: instance of type "QueryRCSBAnnotationsOutput" -> structure:
+           parameter "rcsb_hits" of unspecified object
+        """
+        return self._client.run_job('ProteinStructureUtils.query_rcsb_annotations',
                                     [params], self._service_ver, context)
 
     def status(self, context=None):
