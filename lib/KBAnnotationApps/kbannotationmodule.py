@@ -76,8 +76,10 @@ class KBAnnotationModule(BaseModule):
                         for row in pdb_query_output[item[1]]:
                             output_table["id"].append(item[0])
                             output_table["rcsbid"].append(row["rcsbid"])
-                            output_table["name"].append(row["name"][0])
-                            output_table["method"].append(row["method"][0])
+                            if len(row["name"]) > 0:
+                                output_table["name"].append(row["name"][0])
+                            if len(row["method"]) > 0:
+                                output_table["method"].append(row["method"][0])
                             output_table["strand"].append(row["pdbx_strand_id"])
                             output_table["similarity"].append([row["evalue"],row["identity"]])
                             output_table["taxonomy"].append(row["taxonomy"])
