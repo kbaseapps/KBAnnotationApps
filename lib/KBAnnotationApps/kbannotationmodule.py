@@ -78,8 +78,12 @@ class KBAnnotationModule(BaseModule):
                             output_table["rcsbid"].append(row["rcsbid"])
                             if len(row["name"]) > 0:
                                 output_table["name"].append(row["name"][0])
+                            else:
+                                output_table["name"].append(None)
                             if len(row["method"]) > 0:
                                 output_table["method"].append(row["method"][0])
+                            else:
+                                output_table["method"].append(None)
                             output_table["strand"].append(row["pdbx_strand_id"])
                             output_table["similarity"].append([row["evalue"],row["identity"]])
                             output_table["taxonomy"].append(row["taxonomy"])
