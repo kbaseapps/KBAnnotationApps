@@ -10,7 +10,6 @@ from os.path import exists
 from installed_clients.KBaseReportClient import KBaseReport
 from installed_clients.WorkspaceClient import Workspace
 from installed_clients.DataFileUtilClient import DataFileUtil
-from installed_clients.ProteinStructureUtilsClient import ProteinStructureUtils
 from installed_clients.cb_annotation_ontology_apiClient import cb_annotation_ontology_api
 from KBAnnotationApps.kbannotationmodule import KBAnnotationModule
 #END_HEADER
@@ -53,10 +52,9 @@ class KBAnnotationApps:
         self.token = os.environ['KB_AUTH_TOKEN']
         self.wsclient = Workspace(self.config["workspace-url"], token=self.token)
         self.kbreport = KBaseReport(self.callback_url,token=self.token)
-        self.struct_utils = ProteinStructureUtils(self.callback_url,token=self.token)
         self.anno_api = cb_annotation_ontology_api(self.callback_url,token=self.token)
         self.dfu = DataFileUtil(self.callback_url,token=self.token)
-        self.api = KBAnnotationModule("KBAnnotationApps",self.wsclient,self.anno_api,self.struct_utils,config['scratch'],self.config)
+        self.api = KBAnnotationModule("KBAnnotationApps",self.wsclient,self.anno_api,config['scratch'],self.config)
         logging.basicConfig(format='%(created)s %(levelname)s: %(message)s',
                             level=logging.INFO)
         #END_CONSTRUCTOR

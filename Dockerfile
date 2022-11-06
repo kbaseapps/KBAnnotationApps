@@ -8,7 +8,15 @@ MAINTAINER KBase Developer
 
 # RUN apt-get update
 
-RUN pip install --upgrade pip
+RUN pip install --upgrade pip \
+    && pip install biopython --upgrade \
+    && pip install --upgrade requests \
+    && pip install Cython \
+    && pip install wheel \
+    && pip install pandas \
+    && pip install mock==4.0.3\
+    && pip install openpyxl \
+    && pip install python-graphql-client
 
 # update security libraries in the base image
 RUN pip install cffi --upgrade \
