@@ -29,7 +29,7 @@ class KBAnnotationModule(BaseModule):
             "similarity_threshold_type":"evalue",
             "similarity_threshold":0.00001,
             "return_data":False,
-            "bundle_size":10,
+            "bundle_size":20,
             "save_annotated_genome":False
         })
         sequence_list = self.genome_to_proteins(params["genome_ref"])
