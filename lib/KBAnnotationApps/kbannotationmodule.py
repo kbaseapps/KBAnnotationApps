@@ -267,7 +267,7 @@ class KBAnnotationModule(BaseModule):
             row["uniprotID"] = newuniprot
             refdata = ""
             if row["references"][0]:
-                refdata = '<a href="https://pubmed.ncbi.nlm.nih.gov/'+output_table["references"][0]+'/" target="_blank">'+output_table["references"][0]+'</a>'
+                refdata = '<a href="https://pubmed.ncbi.nlm.nih.gov/'+row["references"][0]+'/" target="_blank">'+row["references"][0]+'</a>'
             elif row["references"][4] != "None":
                 refdata = row["references"][1]+". "+row["references"][2]+" ("+row["references"][4]+")"
             else:
