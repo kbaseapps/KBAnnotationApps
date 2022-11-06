@@ -99,7 +99,7 @@ class KBAnnotationModule(BaseModule):
             "similarity_threshold_type":"evalue",
             "similarity_threshold":0.00001,
             "return_data":False,
-            "save_annotated_genome":False
+            "save_annotated_genome":True
         })
         sequence_list = self.genome_to_proteins(params["genome_ref"])
         query_table = self.query_rcsb_with_proteins(sequence_list,params["similarity_threshold_type"],params["similarity_threshold"])
