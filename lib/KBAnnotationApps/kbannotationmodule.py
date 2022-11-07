@@ -163,7 +163,7 @@ class KBAnnotationModule(BaseModule):
             results = json.loads(reqH.text)
         except (HTTPError, ConnectionError, RequestException) as e:
             logging.info(" _queryRCSB ERROR ".center(30, "-"))
-            logging.info(f'Querying RCSB db with {jsonQueryObj} had an Error: {e}')
+            logging.info(f'Querying RCSB db with {query_input} had an Error: {e}')
             return {}
         except Exception as e:
             print(e)
@@ -217,7 +217,7 @@ class KBAnnotationModule(BaseModule):
                         raise ConnectionError(graphql_ret['errors'][0]['message'])
                 except (aiohttp.ClientConnectionError, asyncio.TimeoutError):
                     logging.info(" _queryGraphql ERROR ".center(30, "-"))
-                    logging.info(f'Connecting to RCSB GraphQL host at "{self.__baseGraphqlUrl} errored.')
+                    logging.info(f'Connecting to RCSB GraphQL host at https://data.rcsb.org/graphql errored.')
                     return {'data': None}
                 except (HTTPError, ConnectionError, RequestException) as e:
                     # not raising error to allow continue with other chunks
@@ -238,12 +238,16 @@ class KBAnnotationModule(BaseModule):
                             "compounds":[],
                             "proteins":{}
                         }
-                        if 'rcsb_primary_citation' in entry:
-                            metadata_hash[id]["reference"] = [entry["rcsb_primary_citation"].get('pdbx_database_id_PubMed', ''),
-                                entry["rcsb_primary_citation"].get('title', ''),
-                                entry["rcsb_primary_citation"].get('journal_abbrev', ''),
-                                entry["rcsb_primary_citation"].get('rcsb_authors', [])[0],  # Show first author only
-                                str(entry["rcsb_primary_citation"].get('year', 'NA'))]
+                        if 'rcsb_primary_citation' in entry and entry["rcsb_primary_citation"]:
+                            pubmedid = entry["rcsb_primary_citation"].get('pdbx_database_id_PubMed', '')
+                            title = entry["rcsb_primary_citation"].get('title', '')
+                            journal = entry["rcsb_primary_citation"].get('journal_abbrev', '')
+                            year = entry["rcsb_primary_citation"].get('year', 'NA')
+                            authorlist = entry["rcsb_primary_citation"].get('rcsb_authors', [])
+                            author = ""
+                            if authorlist and len(authorlist) > 0:
+                                author = authorlist[0]
+                            metadata_hash[id]["reference"] = [pubmedid,title,journal,author,str(year)]
                         for exp in entry.get('exptl', []):
                             if exp.get('method', ''):
                                 metadata_hash[id]["methods"].append(exp['method'])
@@ -327,6 +331,7 @@ class KBAnnotationModule(BaseModule):
                 print("Done querying sequences for ",count," of ",len(sequence_list))
         print(len(all_hits)," distinct PDB IDs hit across ",len(sequence_list)," input features!")
         #Now we bulk query for metadata about all of our hits
+        self.print_json_debug_file("MetadataList.json",list(distinct_ids.keys()))
         metadata_hash = self.query_rcsb_metadata_by_id(list(distinct_ids.keys()))
         #Now we build our results table
         for item in sequence_list:
