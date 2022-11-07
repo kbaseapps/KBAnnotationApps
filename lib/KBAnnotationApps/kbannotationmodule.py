@@ -160,7 +160,8 @@ class KBAnnotationModule(BaseModule):
         try:
             reqH = requests.post('https://search.rcsb.org/rcsbsearch/v2/query',json=query_input)
             reqH.raise_for_status()
-            results = json.loads(reqH.text)
+            if len(reqH.text) > 0:
+                results = json.loads(reqH.text)
         except (HTTPError, ConnectionError, RequestException) as e:
             logging.info(" _queryRCSB ERROR ".center(30, "-"))
             logging.info(f'Querying RCSB db with {query_input} had an Error: {e}')
@@ -309,6 +310,7 @@ class KBAnnotationModule(BaseModule):
                                                 break                                    
                                     metadata_hash[entry['rcsb_id']]['compounds'].append(compound_data)
                 current_bundle = []
+                self.print_json_debug_file("MetadataHash.json",metadata_hash)
                 print("Done querying metadata for ",count," of ",len(idlist))
         return metadata_hash
     
@@ -374,6 +376,9 @@ class KBAnnotationModule(BaseModule):
                     if ecnumbers[ec] not in retained_hits:
                         retained_hits.append(ecnumbers[ec])
                 for hit in retained_hits:
+                    array = hit.split("_")
+                    struct_row = metadata_hash[array[0]]
+                    prot_row = metadata_hash[array[0]]["proteins"][hit]
                     output_table["id"].append(item[0])
                     output_table["rcsbid"].append(hit)
                     if len(prot_row["uniprot_name"]) > 0:
@@ -428,10 +433,24 @@ class KBAnnotationModule(BaseModule):
                 if geneid not in ontology_inputs["EC"]:
                     ontology_inputs["EC"][geneid] = []
                 for item in pdb_query_output["ec"][count]:
-                    ontology_inputs["EC"][geneid].append({
-                        "term":"EC:"+item[0],
-                        "suffix":item[1]+";"+pdb_query_output["uniprotID"][count][0]
-                    })            
+                    found = False
+                    for term in ontology_inputs["EC"][geneid]:
+                        if term["term"] == "EC:"+item[0]:
+                            found = True
+                            if re.search('RCSB', item[1]) and not re.search(term["suffix"],pdb_query_output["rcsbid"][count]):
+                                term["suffix"] += ";"+pdb_query_output["rcsbid"][count]
+                            if re.search('UniProt', item[1]) and not re.search(term["suffix"],pdb_query_output["uniprotID"][count][0]):
+                                term["suffix"] += ";"+pdb_query_output["uniprotID"][count][0]
+                    if not found:
+                        ec_suffix = []
+                        if re.search('RCSB', item[1]):
+                            ec_suffix.append(pdb_query_output["rcsbid"][count])
+                        if re.search('UniProt', item[1]):
+                            ec_suffix.append(pdb_query_output["uniprotID"][count][0])
+                        ontology_inputs["EC"][geneid].append({
+                            "term":"EC:"+item[0],
+                            "suffix":";".join(ec_suffix)
+                        })
             if pdb_query_output["references"][count]:
                 if pdb_query_output["references"][count][0]:
                     if "PUBMED" not in ontology_inputs:
@@ -536,12 +555,14 @@ class KBAnnotationModule(BaseModule):
             row["uniprotID"] = newuniprot
             refdata = ""
             if row["references"]:
-                if row["references"][0]:
-                    refdata = '<a href="https://pubmed.ncbi.nlm.nih.gov/'+str(row["references"][0])+'/" target="_blank">'+str(row["references"][0])+'</a>'
+                if len(row["references"][1]) > 0 and row["references"][1][-1] != ".":
+                    row["references"][1] += "."
+                if row["references"][0]:    
+                    refdata = '<a href="https://pubmed.ncbi.nlm.nih.gov/'+str(row["references"][0])+'/" target="_blank">'+row["references"][1]+" "+row["references"][2]+" ("+row["references"][4]+')</a>'
                 elif row["references"][4] and row["references"][4] != "None":
-                    refdata = row["references"][1]+". "+row["references"][2]+" ("+row["references"][4]+")"
+                    refdata = row["references"][1]+" "+row["references"][2]+" ("+row["references"][4]+")"
                 else:
-                    refdata = row["references"][1]+". "+row["references"][2]
+                    refdata = row["references"][1]+" "+row["references"][2]
                 row["references"] = refdata
             taxonomy = ""
             for item in row["taxonomy"]:
