@@ -239,9 +239,9 @@ class KBAnnotationModule(BaseModule):
                             "proteins":{}
                         }
                         if 'rcsb_primary_citation' in entry and entry["rcsb_primary_citation"]:
-                            pubmedid = entry["rcsb_primary_citation"].get('pdbx_database_id_PubMed', '')
+                            pubmedid = entry["rcsb_primary_citation"].get('pdbx_database_id_PubMed', None)
                             title = entry["rcsb_primary_citation"].get('title', '')
-                            journal = entry["rcsb_primary_citation"].get('journal_abbrev', '')
+                            journal = entry["rcsb_primary_citation"].get('journal_abbrev', 'NA')
                             year = entry["rcsb_primary_citation"].get('year', 'NA')
                             authorlist = entry["rcsb_primary_citation"].get('rcsb_authors', [])
                             author = ""
@@ -313,7 +313,7 @@ class KBAnnotationModule(BaseModule):
         return metadata_hash
     
     def query_rcsb_with_proteins(self,sequence_list,cutoff_type="evalue",threhold=0.00001,bundle_size=100):
-        output_table = {"id":[],"rcsbid":[],"method":[],"strand":[],"similarity":[],"taxonomy":[],"name":[],"components":[],"rcsbec":[],"uniprotec":[],"uniprotID":[],"references":[]}
+        output_table = {"id":[],"rcsbid":[],"method":[],"strand":[],"similarity":[],"taxonomy":[],"name":[],"components":[],"ec":[],"uniprotID":[],"references":[]}
         #First we get all the hits in RCSB one at a time (maybe bulk this later?)
         all_hits = {}
         distinct_ids = {}
@@ -342,6 +342,7 @@ class KBAnnotationModule(BaseModule):
                     array = hit.split("_")
                     struct_row = metadata_hash[array[0]]
                     prot_row = metadata_hash[array[0]]["proteins"][hit]
+                    prot_row["combined_ec"] = []
                     if prot_row["ec_numbers"] or prot_row["uniprot_ec"]:
                         ec_hash = {}
                         if prot_row["ec_numbers"]:
@@ -350,17 +351,21 @@ class KBAnnotationModule(BaseModule):
                             for ec in prot_row["ec_numbers"]:
                                 array = ec.split(".")
                                 if len(array) == 4:
-                                    ec_hash[ec] = "rcsbec"
+                                    ec_hash[ec] = "RCSB"
                                     longest_ec = None
                                 if longest_ec and len(array) > longest_ec_size:
                                     longest_ec_size = len(array)
                                     longest_ec = ec
                             if longest_ec:
-                                ec_hash[longest_ec] = "rcsbec"
+                                ec_hash[longest_ec] = "RCSB"
                         if prot_row["uniprot_ec"]:
                             for ec in prot_row["uniprot_ec"]:
-                                ec_hash[ec["number"]] = "uniprot_ec"
+                                if ec["number"] in ec_hash:
+                                    ec_hash[ec["number"]] += ";UniProt"
+                                else:
+                                    ec_hash[ec["number"]] = "UniProt"
                         for ec in ec_hash:
+                            prot_row["combined_ec"].append([ec,ec_hash[ec]])
                             if ec not in ecnumbers or all_hits[item[0]][ecnumbers[ec]]["evalue"] > all_hits[item[0]][hit]["evalue"]:
                                 ecnumbers[ec] = hit
                     else:
@@ -383,8 +388,7 @@ class KBAnnotationModule(BaseModule):
                     output_table["similarity"].append([all_hits[item[0]][hit]["evalue"],all_hits[item[0]][hit]["sequence_identity"]])
                     output_table["taxonomy"].append(prot_row["taxonomy"])
                     output_table["components"].append(struct_row["compounds"])
-                    output_table["rcsbec"].append(prot_row["ec_numbers"])
-                    output_table["uniprotec"].append(prot_row["uniprot_ec"])
+                    output_table["ec"].append(prot_row["combined_ec"])
                     output_table["uniprotID"].append(prot_row["uniprotID"])
                     output_table["references"].append(struct_row["reference"])
         return output_table
@@ -399,7 +403,7 @@ class KBAnnotationModule(BaseModule):
                 "term":"RCSBID:"+pdb_query_output["rcsbid"][count],
                 "name":pdb_query_output["name"][count]+";"+pdb_query_output["method"][count]+";"+",".join(pdb_query_output["strand"][count])+";Evalue="+str(pdb_query_output["similarity"][count][0])
             })
-            if pdb_query_output["taxonomy"][count]:
+            if pdb_query_output["taxonomy"][count] and len(pdb_query_output["taxonomy"][count]) >= 1 and pdb_query_output["taxonomy"][count][0][0] and pdb_query_output["taxonomy"][count][0][1]:
                 if "TAXID" not in ontology_inputs:
                     ontology_inputs["TAXID"] = {}
                 if geneid not in ontology_inputs["TAXID"]:
@@ -418,37 +422,18 @@ class KBAnnotationModule(BaseModule):
                         "term":"UNIPROT:"+item,
                         "name":pdb_query_output["name"][count]+";"+pdb_query_output["rcsbid"][count]
                     })
-            if pdb_query_output["rcsbec"][count] or pdb_query_output["uniprotec"][count]:
+            if pdb_query_output["ec"][count] and len(pdb_query_output["ec"][count]) >= 1:
                 if "EC" not in ontology_inputs:
                     ontology_inputs["EC"] = {}
                 if geneid not in ontology_inputs["EC"]:
                     ontology_inputs["EC"][geneid] = []
-                ec_hash = {}
-                if pdb_query_output["rcsbec"][count]:
-                    for item in pdb_query_output["rcsbec"][count]:
-                        array = item.split(".")
-                        if len(array) == 4:
-                            ec_hash[item] = ";"+pdb_query_output["rcsbid"][count]
-                if pdb_query_output["uniprotec"][count]:
-                    for item in pdb_query_output["uniprotec"][count]:
-                        if item["number"] in ec_hash:
-                            ontology_inputs["EC"][geneid].append({
-                                "term":"EC:"+item["number"],
-                                "suffix":ec_hash[item["number"]]+";"+pdb_query_output["uniprotID"][count][0]
-                            })
-                        else:
-                            ontology_inputs["EC"][geneid].append({
-                                "term":"EC:"+item["number"],
-                                "suffix":";"+pdb_query_output["uniprotID"][count][0]
-                            })
-            if pdb_query_output["uniprotec"][count]:
-                if "EC" not in ontology_inputs:
-                    ontology_inputs["EC"] = {}
-                if geneid not in ontology_inputs["EC"]:
-                    ontology_inputs["EC"][geneid] = []
-                
+                for item in pdb_query_output["ec"][count]:
+                    ontology_inputs["EC"][geneid].append({
+                        "term":"EC:"+item[0],
+                        "suffix":item[1]+";"+pdb_query_output["uniprotID"][count][0]
+                    })            
             if pdb_query_output["references"][count]:
-                if pdb_query_output["references"][count][0] != None:
+                if pdb_query_output["references"][count][0]:
                     if "PUBMED" not in ontology_inputs:
                         ontology_inputs["PUBMED"] = {}
                     if geneid not in ontology_inputs["PUBMED"]:
@@ -538,21 +523,11 @@ class KBAnnotationModule(BaseModule):
             newsim = "Identity: "+str(row["similarity"][1])+"<br>Evalue: "+str(row["similarity"][0])
             row["similarity"] = newsim
             newec = ""
-            echash = {}
-            for ec in row["rcsbec"]:
-                array = ec.split(".")
-                if len(array) == 4:
-                    echash[ec] = ["RCSB"]
-            for item in row["uniprotec"]:
-                if "number" in item:
-                    if item["number"] not in echash:
-                        echash[item["number"]] = []
-                    echash[item["number"]].append("UniProt")
-            for ec in echash:
+            for item in row["ec"]:
                 if len(newec) > 0:
                     newec += "<br>"
-                newec += '<a href="https://www.kegg.jp/entry/'+ec+'" target="_blank">'+ec+"("+"/".join(echash[ec])+')</a>'
-            row["rcsbec"] = newec
+                newec += '<a href="https://www.kegg.jp/entry/'+item[0]+'" target="_blank">'+item[0]+"("+item[1]+')</a>'
+            row["ec"] = newec
             newuniprot = ""
             for id in row["uniprotID"]:
                 if len(newuniprot) > 0:
@@ -563,19 +538,19 @@ class KBAnnotationModule(BaseModule):
             if row["references"]:
                 if row["references"][0]:
                     refdata = '<a href="https://pubmed.ncbi.nlm.nih.gov/'+str(row["references"][0])+'/" target="_blank">'+str(row["references"][0])+'</a>'
-                elif row["references"][4] != "None":
+                elif row["references"][4] and row["references"][4] != "None":
                     refdata = row["references"][1]+". "+row["references"][2]+" ("+row["references"][4]+")"
                 else:
                     refdata = row["references"][1]+". "+row["references"][2]
                 row["references"] = refdata
             taxonomy = ""
             for item in row["taxonomy"]:
-                if len(taxonomy) > 0:
-                    taxonomy += "<br>"
-                taxonomy += '<a href="https://narrative.kbase.us/#dataview/12570/'+str(item[0])+'/" target="_blank">'+item[1]+'</a>'
+                if item[0] and item[1]:
+                    if len(taxonomy) > 0:
+                        taxonomy += "<br>"
+                    taxonomy += '<a href="https://narrative.kbase.us/#dataview/12570/'+str(item[0])+'/" target="_blank">'+item[1]+'</a>'
             row["taxonomy"] = taxonomy
         #columns=column_list
-        table = table.drop(columns=['uniprotec'])
         html_data = f"""
     <html>
     <header>
