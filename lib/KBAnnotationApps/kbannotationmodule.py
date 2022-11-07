@@ -451,7 +451,14 @@ class KBAnnotationModule(BaseModule):
                             "term":"EC:"+item[0],
                             "suffix":";".join(ec_suffix)
                         })
-            if pdb_query_output["references"][count]:
+            if pdb_query_output["references"][count] and pdb_query_output["references"][count][1]:
+                if len(pdb_query_output["references"][count][1]) > 0 and pdb_query_output["references"][count][1][-1] != ".":
+                    pdb_query_output["references"][count][1] += "."
+                refdata = pdb_query_output["references"][count][1]
+                if pdb_query_output["references"][count][2]:
+                    refdata += " "+pdb_query_output["references"][count][2]
+                if pdb_query_output["references"][count][4] and pdb_query_output["references"][count][4] != "None":
+                    refdata += " ("+pdb_query_output["references"][count][4]+")"
                 if pdb_query_output["references"][count][0]:
                     if "PUBMED" not in ontology_inputs:
                         ontology_inputs["PUBMED"] = {}
@@ -459,7 +466,7 @@ class KBAnnotationModule(BaseModule):
                         ontology_inputs["PUBMED"][geneid] = []
                     ontology_inputs["PUBMED"][geneid].append({
                         "term":"PUBMED:"+str(pdb_query_output["references"][count][0]),
-                        "name":pdb_query_output["rcsbid"][count]+":"+pdb_query_output["references"][count][3]+" et al."+pdb_query_output["references"][count][1]+"."+pdb_query_output["references"][count][2]+"("+pdb_query_output["references"][count][2]+")"
+                        "name":pdb_query_output["rcsbid"][count]+":"+refdata
                     })
                 else:
                     if "REF" not in ontology_inputs:
@@ -468,7 +475,7 @@ class KBAnnotationModule(BaseModule):
                         ontology_inputs["REF"][geneid] = []
                     ontology_inputs["REF"][geneid].append({
                         "term":"REF:"+pdb_query_output["references"][count][1],
-                        "name":pdb_query_output["rcsbid"][count]+":"+pdb_query_output["references"][count][3]+" et al."+pdb_query_output["references"][count][2]+"("+pdb_query_output["references"][count][2]+")"
+                        "name":pdb_query_output["rcsbid"][count]+":"+refdata
                     })
             if pdb_query_output["components"][count]:
                 for item in pdb_query_output["components"][count]:
@@ -554,15 +561,17 @@ class KBAnnotationModule(BaseModule):
                 newuniprot += '<a href="https://www.uniprot.org/uniprotkb/'+id+'/entry" target="_blank">'+id+'</a>'
             row["uniprotID"] = newuniprot
             refdata = ""
-            if row["references"]:
+            if row["references"] and row["references"][1]:
                 if len(row["references"][1]) > 0 and row["references"][1][-1] != ".":
                     row["references"][1] += "."
                 if row["references"][0]:    
-                    refdata = '<a href="https://pubmed.ncbi.nlm.nih.gov/'+str(row["references"][0])+'/" target="_blank">'+row["references"][1]+" "+row["references"][2]+" ("+row["references"][4]+')</a>'
-                elif row["references"][4] and row["references"][4] != "None":
-                    refdata = row["references"][1]+" "+row["references"][2]+" ("+row["references"][4]+")"
+                    refdata = '<a href="https://pubmed.ncbi.nlm.nih.gov/'+str(row["references"][0])+'/" target="_blank">'+row["references"][1]+'</a>'
                 else:
-                    refdata = row["references"][1]+" "+row["references"][2]
+                    refdata = row["references"][1]
+                if row["references"][2]:
+                    refdata += " "+row["references"][2]
+                if row["references"][4] and row["references"][4] != "None":
+                    refdata += " ("+row["references"][4]+")"
                 row["references"] = refdata
             taxonomy = ""
             for item in row["taxonomy"]:
