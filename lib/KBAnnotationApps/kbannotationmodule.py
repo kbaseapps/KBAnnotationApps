@@ -532,7 +532,7 @@ class KBAnnotationModule(BaseModule):
     def build_report(self,data,ref):        
         table = pd.DataFrame(data)
         for index, row in table.iterrows():
-            row["id"] = '<a href="https://appdev.kbase.us/#dataview/'+ref+'?sub=Feature&subid='+row["id"]+'" target="_blank">'+row["id"]+'</a>'
+            row["id"] = '<a href="https://narrative.kbase.us/#dataview/'+ref+'?sub=Feature&subid='+row["id"]+'" target="_blank">'+row["id"]+'</a>'
             array = row["rcsbid"].split("_")
             row["rcsbid"] = '<a href="https://www.rcsb.org/3d-view/'+array[0]+'" target="_blank">'+row["rcsbid"]+'</a>'
             row["strand"] = ", ".join(row["strand"])
