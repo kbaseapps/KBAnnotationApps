@@ -85,6 +85,7 @@ class KBAnnotationModule(BaseModule):
         self.graphqlClient = GraphqlClient(endpoint='https://data.rcsb.org/graphql')
         self.genome_info_hash = {}
         self.inchK_cpd_jsonObj = {}
+        self.max_hits = 2
         json_file_path = os.path.join(os.path.dirname(__file__), 'inchikey_cpd.json')
         with open(json_file_path) as DATA:
             self.inchK_cpd_jsonObj = json.load(DATA)
@@ -99,8 +100,10 @@ class KBAnnotationModule(BaseModule):
             "similarity_threshold_type":"evalue",
             "similarity_threshold":0.00001,
             "return_data":False,
-            "save_annotated_genome":True
+            "save_annotated_genome":True,
+            "max_hits":2
         })
+        self.max_hits = params["max_hits"]
         sequence_list = self.genome_to_proteins(params["genome_ref"])
         query_table = self.query_rcsb_with_proteins(sequence_list,params["similarity_threshold_type"],params["similarity_threshold"])
         if params["save_annotated_genome"]:
@@ -218,7 +221,7 @@ class KBAnnotationModule(BaseModule):
                         raise ConnectionError(graphql_ret['errors'][0]['message'])
                 except (aiohttp.ClientConnectionError, asyncio.TimeoutError):
                     logging.info(" _queryGraphql ERROR ".center(30, "-"))
-                    logging.info(f'Connecting to RCSB GraphQL host at https://data.rcsb.org/graphql errored.')
+                    logging.info('Connecting to RCSB GraphQL host at https://data.rcsb.org/graphql errored.')
                     return {'data': None}
                 except (HTTPError, ConnectionError, RequestException) as e:
                     # not raising error to allow continue with other chunks
@@ -340,6 +343,7 @@ class KBAnnotationModule(BaseModule):
             if item[0] in all_hits:
                 retained_hits = []
                 ecnumbers = {}
+                ecscores = {}
                 for hit in all_hits[item[0]]:
                     array = hit.split("_")
                     struct_row = metadata_hash[array[0]]
@@ -370,11 +374,17 @@ class KBAnnotationModule(BaseModule):
                             prot_row["combined_ec"].append([ec,ec_hash[ec]])
                             if ec not in ecnumbers or all_hits[item[0]][ecnumbers[ec]]["evalue"] > all_hits[item[0]][hit]["evalue"]:
                                 ecnumbers[ec] = hit
-                    else:
-                        retained_hits.append(hit)
-                for ec in ecnumbers:
+                                ecscores[ec] = all_hits[item[0]][hit]["evalue"]
+                    # else:
+                    #     retained_hits.append(hit)
+                sorted_ec = sorted(ecscores, key=ecscores.get)
+                count = 0
+                for ec in sorted_ec:
                     if ecnumbers[ec] not in retained_hits:
                         retained_hits.append(ecnumbers[ec])
+                        count += 1
+                        if count >= self.max_hits:
+                            break
                 for hit in retained_hits:
                     array = hit.split("_")
                     struct_row = metadata_hash[array[0]]
@@ -399,34 +409,34 @@ class KBAnnotationModule(BaseModule):
         return output_table
 
     def add_annotations_to_genome(self,ref,suffix,pdb_query_output):
-        ontology_inputs = {"RCSBID":{}}
+        ontology_inputs = {"RCSB":{}}
         self.print_json_debug_file("RCSBQueryResults.json",pdb_query_output)
         for count, geneid in enumerate(pdb_query_output["id"]):
-            if geneid not in ontology_inputs["RCSBID"]:
-                ontology_inputs["RCSBID"][geneid] = []
-            ontology_inputs["RCSBID"][geneid].append({
-                "term":"RCSBID:"+pdb_query_output["rcsbid"][count],
+            if geneid not in ontology_inputs["RCSB"]:
+                ontology_inputs["RCSB"][geneid] = []
+            ontology_inputs["RCSB"][geneid].append({
+                "term":"RCSB:"+pdb_query_output["rcsbid"][count],
                 "name":pdb_query_output["name"][count]+";"+pdb_query_output["method"][count]+";"+",".join(pdb_query_output["strand"][count])+";Evalue="+str(pdb_query_output["similarity"][count][0])
             })
-            if pdb_query_output["taxonomy"][count] and len(pdb_query_output["taxonomy"][count]) >= 1 and pdb_query_output["taxonomy"][count][0][0] and pdb_query_output["taxonomy"][count][0][1]:
-                if "TAXID" not in ontology_inputs:
-                    ontology_inputs["TAXID"] = {}
-                if geneid not in ontology_inputs["TAXID"]:
-                    ontology_inputs["TAXID"][geneid] = []
-                ontology_inputs["TAXID"][geneid].append({
-                    "term":"TAXID:"+str(pdb_query_output["taxonomy"][count][0][0]),
-                    "name":pdb_query_output["taxonomy"][count][0][1]+";"+pdb_query_output["rcsbid"][count]
-                })
-            if pdb_query_output["uniprotID"][count]:
-                if "UNIPROT" not in ontology_inputs:
-                    ontology_inputs["UNIPROT"] = {}
-                if geneid not in ontology_inputs["UNIPROT"]:
-                    ontology_inputs["UNIPROT"][geneid] = []
-                for item in pdb_query_output["uniprotID"][count]:
-                    ontology_inputs["UNIPROT"][geneid].append({
-                        "term":"UNIPROT:"+item,
-                        "name":pdb_query_output["name"][count]+";"+pdb_query_output["rcsbid"][count]
-                    })
+            # if pdb_query_output["taxonomy"][count] and len(pdb_query_output["taxonomy"][count]) >= 1 and pdb_query_output["taxonomy"][count][0][0] and pdb_query_output["taxonomy"][count][0][1]:
+            #     if "TAXID" not in ontology_inputs:
+            #         ontology_inputs["TAXID"] = {}
+            #     if geneid not in ontology_inputs["TAXID"]:
+            #         ontology_inputs["TAXID"][geneid] = []
+            #     ontology_inputs["TAXID"][geneid].append({
+            #         "term":"TAXID:"+str(pdb_query_output["taxonomy"][count][0][0]),
+            #         "name":pdb_query_output["taxonomy"][count][0][1]+";"+pdb_query_output["rcsbid"][count]
+            #     })
+            # if pdb_query_output["uniprotID"][count]:
+            #     if "UNIPROT" not in ontology_inputs:
+            #         ontology_inputs["UNIPROT"] = {}
+            #     if geneid not in ontology_inputs["UNIPROT"]:
+            #         ontology_inputs["UNIPROT"][geneid] = []
+            #     for item in pdb_query_output["uniprotID"][count]:
+            #         ontology_inputs["UNIPROT"][geneid].append({
+            #             "term":"UNIPROT:"+item,
+            #             "name":pdb_query_output["name"][count]+";"+pdb_query_output["rcsbid"][count]
+            #         })
             if pdb_query_output["ec"][count] and len(pdb_query_output["ec"][count]) >= 1:
                 if "EC" not in ontology_inputs:
                     ontology_inputs["EC"] = {}
@@ -451,32 +461,32 @@ class KBAnnotationModule(BaseModule):
                             "term":"EC:"+item[0],
                             "suffix":";".join(ec_suffix)
                         })
-            if pdb_query_output["references"][count] and pdb_query_output["references"][count][1]:
-                if len(pdb_query_output["references"][count][1]) > 0 and pdb_query_output["references"][count][1][-1] != ".":
-                    pdb_query_output["references"][count][1] += "."
-                refdata = pdb_query_output["references"][count][1]
-                if pdb_query_output["references"][count][2]:
-                    refdata += " "+pdb_query_output["references"][count][2]
-                if pdb_query_output["references"][count][4] and pdb_query_output["references"][count][4] != "None":
-                    refdata += " ("+pdb_query_output["references"][count][4]+")"
-                if pdb_query_output["references"][count][0]:
-                    if "PUBMED" not in ontology_inputs:
-                        ontology_inputs["PUBMED"] = {}
-                    if geneid not in ontology_inputs["PUBMED"]:
-                        ontology_inputs["PUBMED"][geneid] = []
-                    ontology_inputs["PUBMED"][geneid].append({
-                        "term":"PUBMED:"+str(pdb_query_output["references"][count][0]),
-                        "name":pdb_query_output["rcsbid"][count]+":"+refdata
-                    })
-                else:
-                    if "REF" not in ontology_inputs:
-                        ontology_inputs["REF"] = {}
-                    if geneid not in ontology_inputs["REF"]:
-                        ontology_inputs["REF"][geneid] = []
-                    ontology_inputs["REF"][geneid].append({
-                        "term":"REF:"+pdb_query_output["references"][count][1],
-                        "name":pdb_query_output["rcsbid"][count]+":"+refdata
-                    })
+            # if pdb_query_output["references"][count] and pdb_query_output["references"][count][1]:
+            #     if len(pdb_query_output["references"][count][1]) > 0 and pdb_query_output["references"][count][1][-1] != ".":
+            #         pdb_query_output["references"][count][1] += "."
+            #     refdata = pdb_query_output["references"][count][1]
+            #     if pdb_query_output["references"][count][2]:
+            #         refdata += " "+pdb_query_output["references"][count][2]
+            #     if pdb_query_output["references"][count][4] and pdb_query_output["references"][count][4] != "None":
+            #         refdata += " ("+pdb_query_output["references"][count][4]+")"
+            #     if pdb_query_output["references"][count][0]:
+            #         if "PUBMED" not in ontology_inputs:
+            #             ontology_inputs["PUBMED"] = {}
+            #         if geneid not in ontology_inputs["PUBMED"]:
+            #             ontology_inputs["PUBMED"][geneid] = []
+            #         ontology_inputs["PUBMED"][geneid].append({
+            #             "term":"PUBMED:"+str(pdb_query_output["references"][count][0]),
+            #             "name":pdb_query_output["rcsbid"][count]+":"+refdata
+            #         })
+            #     else:
+            #         if "REF" not in ontology_inputs:
+            #             ontology_inputs["REF"] = {}
+            #         if geneid not in ontology_inputs["REF"]:
+            #             ontology_inputs["REF"][geneid] = []
+            #         ontology_inputs["REF"][geneid].append({
+            #             "term":"REF:"+pdb_query_output["references"][count][1],
+            #             "name":pdb_query_output["rcsbid"][count]+":"+refdata
+            #         })
             if pdb_query_output["components"][count]:
                 for item in pdb_query_output["components"][count]:
                     if "mscpd" in item:
@@ -489,15 +499,15 @@ class KBAnnotationModule(BaseModule):
                             "term":"MSCPD:"+m[1],
                             "name":m[2]+";cocrystalized in "+pdb_query_output["rcsbid"][count]
                         })
-                    elif "InChI" in item:
-                        if "InChI" not in ontology_inputs:
-                            ontology_inputs["InChI"] = {}
-                        if geneid not in ontology_inputs["InChI"]:
-                            ontology_inputs["InChI"][geneid] = []
-                        ontology_inputs["InChI"][geneid].append({
-                            "term":"InChI:"+item["InChI"],
-                            "name":m[1]+";cocrystalized in "+pdb_query_output["rcsbid"][count]
-                        })
+                    # elif "InChI" in item:
+                    #     if "InChI" not in ontology_inputs:
+                    #         ontology_inputs["InChI"] = {}
+                    #     if geneid not in ontology_inputs["InChI"]:
+                    #         ontology_inputs["InChI"][geneid] = []
+                    #     ontology_inputs["InChI"][geneid].append({
+                    #         "term":"InChI:"+item["InChI"],
+                    #         "name":m[1]+";cocrystalized in "+pdb_query_output["rcsbid"][count]
+                    #     })
         anno_api_input = {
             "input_ref":ref,
             "output_name":self.genome_info_hash[ref][1]+suffix,
